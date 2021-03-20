@@ -11,14 +11,27 @@ const log = e => {
         fs.mkdirSync(dir, log)
 })
 
-// console.log('Generating keys...')
-// const key = new NodeRSA({b: 512})
-// key.generateKeyPair(2048)
-// const publicKey = key.exportKey('pkcs8-public-pem')
-// const privateKey = key.exportKey('pkcs8-private-pem')
-// fs.writeFile("public.asc", public, log)
-// fs.writeFile("private.asc", public, log)
-// console.log('Keys successful generated')
+const config = {}
+
+console.log('Generating keys...')
+const key = new NodeRSA({b: 512})
+let publicKey, privateKey;
+if (fs.existsSync("public.asc") && fs.existsSync("private.asc")) {
+    publicKey = fs.readFileSync("public.asc", {encoding: "utf-8", flag: "r"})
+    privateKey = fs.readFileSync("private.asc", {encoding: "utf-8", flag: "r"})
+    key.importKey(publicKey, 'pkcs8-public');
+    key.importKey(privateKey, 'pkcs8-private');
+} else {
+    key.generateKeyPair(2048)
+    publicKey = key.exportKey('pkcs8-public-pem')
+    privateKey = key.exportKey('pkcs8-private-pem')
+}
+config.name = sha256(publicKey).toString()
+
+fs.writeFileSync("public.asc", publicKey, log)
+fs.writeFileSync("keys/"+config.name, publicKey, log)
+fs.writeFileSync("private.asc", privateKey, log)
+console.log('Keys successful generated')
 
 let publicKeys = fs.readdirSync("keys").map(file => {
     return {
@@ -56,16 +69,24 @@ app.get('/messages', (req, res) => {
 })
 app.post('/messages', (req, res) => {
     messages = [...messages, {
-        name: sha256(req.body.body),
+        name: sha256(req.body.body).toString(),
         value: req.body.body,
     }]
     res.status(201)
     res.send({data:{status:"OK"}})
 })
 
+const saveConfig = () => {
+    fs.writeFileSync("config.json", JSON.stringify(config), {encoding: "utf-8", flag: "w"})
+}
+
+saveConfig()
+
 process.on("SIGINT", () => {
     publicKeys.forEach(key => fs.writeFileSync("keys/"+key.name, key.value))
     messages.forEach(msg => fs.writeFileSync("messages/"+msg.name, msg.value))
+
+    saveConfig()
 
     process.exit()
 })
