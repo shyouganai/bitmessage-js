@@ -1,0 +1,12 @@
+{
+  "name": "bitmessage-js",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Amir Avkhadiev",
+  "license": "MIT",
+  "dependencies": {
+    "crypto-js": "^4.0.0",
+    "express": "^4.17.1",
+    "node-rsa": "^1.1.1"
+  }
+}
