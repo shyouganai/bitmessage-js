@@ -11,38 +11,39 @@ const log = e => {
         fs.mkdirSync(dir, log)
 })
 
-const config = {}
+const readOptions = {encoding: "utf-8", flag: "r"}
+const writeOptions = {encoding: "utf-8", flag: "w"}
 
+let config = {}
 console.log('Generating keys...')
 const key = new NodeRSA({b: 512})
-let publicKey, privateKey;
-if (fs.existsSync("public.asc") && fs.existsSync("private.asc")) {
-    publicKey = fs.readFileSync("public.asc", {encoding: "utf-8", flag: "r"})
-    privateKey = fs.readFileSync("private.asc", {encoding: "utf-8", flag: "r"})
-    key.importKey(publicKey, 'pkcs8-public');
-    key.importKey(privateKey, 'pkcs8-private');
+if (fs.existsSync("config.json")) {
+    config = fs.readFileSync("config.json", readOptions)
+    config = JSON.parse(config)
+    key.importKey(config.publicKey, 'pkcs8-public');
+    key.importKey(config.privateKey, 'pkcs8-private');
 } else {
     key.generateKeyPair(2048)
-    publicKey = key.exportKey('pkcs8-public-pem')
-    privateKey = key.exportKey('pkcs8-private-pem')
+    config.publicKey = key.exportKey('pkcs8-public-pem')
+    config.privateKey = key.exportKey('pkcs8-private-pem')
+    config.name = sha256(config.publicKey).toString()
 }
-config.name = sha256(publicKey).toString()
 
-fs.writeFileSync("public.asc", publicKey, log)
-fs.writeFileSync("keys/"+config.name, publicKey, log)
-fs.writeFileSync("private.asc", privateKey, log)
+fs.writeFileSync("keys/"+config.name, config.publicKey, log)
+// fs.writeFileSync("public.asc", config.publicKey, log)
+// fs.writeFileSync("private.asc", config.privateKey, log)
 console.log('Keys successful generated')
 
 let publicKeys = fs.readdirSync("keys").map(file => {
     return {
         name: file,
-        value: fs.readFileSync("keys/"+file, {encoding: "utf-8", flag: "r"})
+        value: fs.readFileSync("keys/"+file, readOptions)
     }
 })
 let messages = fs.readdirSync("messages").map(file => {
     return {
         name: file,
-        value: fs.readFileSync("messages/"+file, {encoding: "utf-8", flag: "r"})
+        value: fs.readFileSync("messages/"+file, readOptions)
     }
 })
 
@@ -68,16 +69,18 @@ app.get('/messages', (req, res) => {
     res.send({data:messages})
 })
 app.post('/messages', (req, res) => {
+    toKey = new NodeRSA({b: 512})
+    toKey.importKey(publicKeys.find(k => k.name = req.body.to).value, 'pkcs8-public')
     messages = [...messages, {
         name: sha256(req.body.body).toString(),
-        value: req.body.body,
+        value: toKey.encrypt(req.body.body, 'base64'),
     }]
     res.status(201)
     res.send({data:{status:"OK"}})
 })
 
 const saveConfig = () => {
-    fs.writeFileSync("config.json", JSON.stringify(config), {encoding: "utf-8", flag: "w"})
+    fs.writeFileSync("config.json", JSON.stringify(config), writeOptions)
 }
 
 saveConfig()
