@@ -72,9 +72,9 @@ app.get('/messages', (req, res) => {
     res.send({data:messages})
 })
 app.post('/messages', (req, res) => {
-    console.log(req.ip)
-    fetch('http://'+req.ip+':4444/messages').then(r => r.text()).then(console.log)
-    return
+    let host = hosts.find(h => h === req.ip)
+    if (!host)
+        hosts = [...hosts, req.ip]
     toKey = new NodeRSA({b: 512})
     toKey.importKey(publicKeys.find(k => k.name = req.body.to).value, 'pkcs8-public')
     const value = toKey.encrypt(req.body.body, 'base64')
@@ -83,6 +83,13 @@ app.post('/messages', (req, res) => {
         value,
     }
     messages = [...messages, message]
+    hosts.filter(h => h !== req.ip).forEach(host => {
+        fetch({
+            url: 'http://'+host+':'+port+'/messages',
+            method: 'POST',
+            body: JSON.stringify(message)
+        })
+    })
     res.status(201)
     res.send({data:{status:"OK"}})
 })
@@ -97,6 +104,9 @@ const savePublicKeys = () => {
 const saveMessages = () => {
     messages.forEach(msg => fs.writeFileSync("messages/"+msg.name, msg.value))
 }
+const saveHosts = () => {
+    fs.writeFileSync('hosts.json', JSON.stringify(hosts), writeOptions)
+}
 
 saveConfig()
 
@@ -104,6 +114,7 @@ process.on("SIGINT", () => {
     savePublicKeys()
     saveMessages()
     saveConfig()
+    saveHosts()
 
     process.exit()
 })
