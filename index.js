@@ -76,8 +76,8 @@ app.post('/messages', (req, res) => {
     let host = hosts.find(h => h === req.ip)
     if (!host)
         hosts = [...hosts, req.ip]
-    toKey = new NodeRSA({b: 512})
-    toKey.importKey(publicKeys.find(k => k.name = req.body.to).value, 'pkcs8-public')
+    const toKey = new NodeRSA()
+    toKey.importKey(publicKeys.find(k => k.name === req.body.to).value, 'pkcs8-public')
     const value = toKey.encrypt(req.body.body, 'base64')
     const message = {
         name: sha256(value).toString(),
