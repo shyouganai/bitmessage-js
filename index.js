@@ -84,12 +84,16 @@ app.post('/messages', (req, res) => {
     }
     messages = [...messages, message]
     hosts.filter(h => h !== req.ip).forEach(host => {
-        fetch({
-            url: 'http://'+host+':'+port+'/messages',
+        fetch('http://'+host+':'+port+'/messages/append', {
             method: 'POST',
             body: JSON.stringify(message)
         })
     })
+    res.status(201)
+    res.send({data:{status:"OK"}})
+})
+app.post('/messages/append', (req, res) => {
+    messages = [...messages, req.body]
     res.status(201)
     res.send({data:{status:"OK"}})
 })
