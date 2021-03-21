@@ -93,6 +93,7 @@ app.post('/messages', (req, res) => {
     res.send({data:{status:"OK"}})
 })
 app.post('/messages/append', (req, res) => {
+    console.log(req.body)
     messages = [...messages, req.body]
     res.status(201)
     res.send({data:{status:"OK"}})
