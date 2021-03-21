@@ -84,7 +84,7 @@ app.post('/messages', (req, res) => {
         value,
     }
     messages = [...messages, message]
-    hosts.filter(h => h !== req.ip || reg.ip !== "127.0.0.1").forEach(host => {
+    hosts.filter(h => h !== req.ip || req.ip !== "127.0.0.1").forEach(host => {
         fetch('http://'+host+':'+port+'/messages/append', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
