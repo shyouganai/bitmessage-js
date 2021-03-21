@@ -17,20 +17,20 @@ const writeOptions = {encoding: "utf-8", flag: "w"}
 
 let config = {}
 console.log('Generating keys...')
-const key = new NodeRSA({b: 512})
 if (fs.existsSync("config.json")) {
     config = fs.readFileSync("config.json", readOptions)
     config = JSON.parse(config)
+    const key = new NodeRSA();
     key.importKey(config.publicKey, 'pkcs8-public');
     key.importKey(config.privateKey, 'pkcs8-private');
 } else {
+    const key = new NodeRSA({b: 512});
     key.generateKeyPair(2048)
     config.publicKey = key.exportKey('pkcs8-public-pem')
     config.privateKey = key.exportKey('pkcs8-private-pem')
     config.name = sha256(config.publicKey).toString()
 }
 
-fs.writeFileSync("keys/"+config.name, config.publicKey, log)
 console.log('Keys successful generated')
 
 let publicKeys = fs.readdirSync("keys").map(file => {
@@ -83,9 +83,10 @@ app.post('/messages', (req, res) => {
         value,
     }
     messages = [...messages, message]
-    hosts.filter(h => h !== req.ip).forEach(host => {
+    hosts.filter(h => h !== req.ip || reg.ip !== "127.0.0.1").forEach(host => {
         fetch('http://'+host+':'+port+'/messages/append', {
             method: 'POST',
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(message)
         })
     })
