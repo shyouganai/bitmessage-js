@@ -1,6 +1,7 @@
 const NodeRSA = require('node-rsa')
 const sha256 = require('crypto-js/sha256')
 const fs = require('fs')
+const fetch = require('node-fetch')
 const log = e => {
     if (e !== null)
         console.log(e)
@@ -30,8 +31,6 @@ if (fs.existsSync("config.json")) {
 }
 
 fs.writeFileSync("keys/"+config.name, config.publicKey, log)
-// fs.writeFileSync("public.asc", config.publicKey, log)
-// fs.writeFileSync("private.asc", config.privateKey, log)
 console.log('Keys successful generated')
 
 let publicKeys = fs.readdirSync("keys").map(file => {
@@ -46,6 +45,9 @@ let messages = fs.readdirSync("messages").map(file => {
         value: fs.readFileSync("messages/"+file, readOptions)
     }
 })
+let hosts = []
+if (fs.existsSync("hosts.json"))
+    hosts = JSON.parse(fs.readFileSync("hosts.json", readOptions))
 
 console.log('Starting server...')
 const express = require('express')
@@ -66,15 +68,21 @@ app.post('/keys/public', (req, res) => {
     res.send({data:req.body})
 })
 app.get('/messages', (req, res) => {
+    console.log(req.ip)
     res.send({data:messages})
 })
 app.post('/messages', (req, res) => {
+    console.log(req.ip)
+    fetch('http://'+req.ip+':4444/messages').then(r => r.text()).then(console.log)
+    return
     toKey = new NodeRSA({b: 512})
     toKey.importKey(publicKeys.find(k => k.name = req.body.to).value, 'pkcs8-public')
-    messages = [...messages, {
-        name: sha256(req.body.body).toString(),
-        value: toKey.encrypt(req.body.body, 'base64'),
-    }]
+    const value = toKey.encrypt(req.body.body, 'base64')
+    const message = {
+        name: sha256(value).toString(),
+        value,
+    }
+    messages = [...messages, message]
     res.status(201)
     res.send({data:{status:"OK"}})
 })
@@ -82,18 +90,22 @@ app.post('/messages', (req, res) => {
 const saveConfig = () => {
     fs.writeFileSync("config.json", JSON.stringify(config), writeOptions)
 }
+const savePublicKeys = () => {
+    publicKeys.forEach(key => fs.writeFileSync("keys/"+key.name, key.value))
+}
+
+const saveMessages = () => {
+    messages.forEach(msg => fs.writeFileSync("messages/"+msg.name, msg.value))
+}
 
 saveConfig()
 
 process.on("SIGINT", () => {
-    publicKeys.forEach(key => fs.writeFileSync("keys/"+key.name, key.value))
-    messages.forEach(msg => fs.writeFileSync("messages/"+msg.name, msg.value))
-
+    savePublicKeys()
+    saveMessages()
     saveConfig()
 
     process.exit()
 })
 
-app.listen(port, () => {
-    console.log('Server successful started at port ' + port)
-},null)
+app.listen(port, '0.0.0.0')
