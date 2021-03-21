@@ -30,6 +30,7 @@ if (fs.existsSync("config.json")) {
     config.privateKey = key.exportKey('pkcs8-private-pem')
     config.name = sha256(config.publicKey).toString()
 }
+fs.writeFileSync("keys/"+config.name, config.publicKey, writeOptions)
 
 console.log('Keys successful generated')
 
